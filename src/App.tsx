@@ -43,7 +43,7 @@ function AppContent({ user }: { user: { signInDetails?: { loginId?: string } } }
   return (
     <FileProvider>
       <NotificationProvider>
-        <div className="flex flex-col h-screen bg-gray-50">
+        <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-blue-50">
           <Header
             userEmail={userEmail}
             onMenuToggle={() => setIsSidebarOpen(true)}

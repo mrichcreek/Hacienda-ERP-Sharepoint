@@ -152,7 +152,7 @@ export function Sidebar({ isOpen, onClose, onUploadClick }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-200 ease-in-out lg:transform-none ${
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-slate-50 via-white to-blue-50 border-r border-gray-200 transform transition-transform duration-200 ease-in-out lg:transform-none ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >

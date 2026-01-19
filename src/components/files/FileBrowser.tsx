@@ -343,8 +343,8 @@ export function FileBrowser({ isUploadModalOpen, onUploadModalClose }: FileBrows
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
-      <div className="p-4 border-b border-gray-200 bg-white sticky top-0 z-10">
+    <div className="flex-1 flex flex-col min-h-0 m-4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-white via-slate-50 to-white sticky top-0 z-10">
         <div className="flex items-center justify-between mb-3">
           {!isTrashView ? (
             <BreadcrumbNav
