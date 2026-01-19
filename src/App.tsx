@@ -10,12 +10,14 @@ import { Sidebar } from './components/common/Sidebar';
 import { FileBrowser } from './components/files/FileBrowser';
 import { NotificationCenter } from './components/notifications/NotificationCenter';
 import { ToastContainer } from './components/common/Toast';
+import { ImportDataPage } from './pages/ImportDataPage';
 
 Amplify.configure(outputs);
 
 function AppContent({ user }: { user: { signInDetails?: { loginId?: string } } }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState<'files' | 'import'>('files');
 
   useEffect(() => {
     const handleResize = () => {
@@ -26,6 +28,14 @@ function AppContent({ user }: { user: { signInDetails?: { loginId?: string } } }
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Check URL for import page
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('page') === 'import') {
+      setCurrentPage('import');
+    }
   }, []);
 
   const userEmail = user.signInDetails?.loginId || 'User';
@@ -47,10 +57,14 @@ function AppContent({ user }: { user: { signInDetails?: { loginId?: string } } }
             />
 
             <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
-              <FileBrowser
-                isUploadModalOpen={isUploadModalOpen}
-                onUploadModalClose={() => setIsUploadModalOpen(false)}
-              />
+              {currentPage === 'import' ? (
+                <ImportDataPage />
+              ) : (
+                <FileBrowser
+                  isUploadModalOpen={isUploadModalOpen}
+                  onUploadModalClose={() => setIsUploadModalOpen(false)}
+                />
+              )}
             </main>
           </div>
 
@@ -88,7 +102,7 @@ const formFields = {
 export default function App() {
   return (
     <Authenticator formFields={formFields}>
-      {({ user }) => user && <AppContent user={user} />}
+      {({ user }) => (user ? <AppContent user={user} /> : <></>)}
     </Authenticator>
   );
 }

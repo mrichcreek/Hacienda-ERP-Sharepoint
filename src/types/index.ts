@@ -74,6 +74,13 @@ export interface ContextMenuAction {
   danger?: boolean;
 }
 
+export interface QuickLink {
+  id: string;
+  name: string;
+  folderId: string;
+  folderColor: string | null;
+}
+
 export const FOLDER_COLORS = [
   { name: 'Default', value: null },
   { name: 'Red', value: '#ef4444' },
@@ -83,4 +90,11 @@ export const FOLDER_COLORS = [
   { name: 'Blue', value: '#3b82f6' },
   { name: 'Purple', value: '#a855f7' },
   { name: 'Pink', value: '#ec4899' },
+] as const;
+
+export const SORT_OPTIONS = [
+  { label: 'Name (A-Z)', field: 'name' as SortField, direction: 'asc' as SortDirection },
+  { label: 'Name (Z-A)', field: 'name' as SortField, direction: 'desc' as SortDirection },
+  { label: 'Last Modified (Recent)', field: 'createdAt' as SortField, direction: 'desc' as SortDirection },
+  { label: 'Last Modified (Oldest)', field: 'createdAt' as SortField, direction: 'asc' as SortDirection },
 ] as const;

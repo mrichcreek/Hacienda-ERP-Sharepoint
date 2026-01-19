@@ -1,9 +1,9 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   FolderPlus,
   Download,
   Trash2,
-  ArrowUpDown,
+  ChevronDown,
   RefreshCw,
   Copy,
   Scissors,
@@ -15,6 +15,7 @@ import {
   RotateCcw,
   Loader2,
   FolderOpen,
+  Check,
 } from 'lucide-react';
 import { useFileContext } from '../../contexts/FileContext';
 import { useFiles } from '../../hooks/useFiles';
@@ -26,7 +27,8 @@ import { RenameModal } from './RenameModal';
 import { MoveToModal } from './MoveToModal';
 import { FolderColorPicker } from './FolderColorPicker';
 import { ConfirmDialog } from '../common/ConfirmDialog';
-import type { FileItem, ContextMenuAction, SortField } from '../../types';
+import type { FileItem, ContextMenuAction, SortField, SortDirection } from '../../types';
+import { SORT_OPTIONS } from '../../types';
 
 interface FileBrowserProps {
   isUploadModalOpen: boolean;
@@ -78,6 +80,22 @@ export function FileBrowser({ isUploadModalOpen, onUploadModalClose }: FileBrows
   const [deleteConfirm, setDeleteConfirm] = useState<{ ids: string[]; permanent: boolean } | null>(null);
   const [folders, setFolders] = useState<FileItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node)) {
+        setIsSortMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const currentSortLabel = SORT_OPTIONS.find(
+    (opt) => opt.field === sortField && opt.direction === sortDirection
+  )?.label || 'Name (A-Z)';
 
   const filteredAndSortedFiles = useMemo(() => {
     let result = [...files];
@@ -318,13 +336,10 @@ export function FileBrowser({ isUploadModalOpen, onUploadModalClose }: FileBrows
     [isTrashView, handleOpenMoveModal, setClipboardItems, downloadFile, setCurrentFolderId, clearSelection]
   );
 
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
+  const handleSortSelect = (field: SortField, direction: SortDirection) => {
+    setSortField(field);
+    setSortDirection(direction);
+    setIsSortMenuOpen(false);
   };
 
   return (
@@ -436,14 +451,34 @@ export function FileBrowser({ isUploadModalOpen, onUploadModalClose }: FileBrows
             </>
           )}
 
-          <div className="ml-auto">
+          <div className="ml-auto relative" ref={sortMenuRef}>
             <button
-              onClick={() => toggleSort('name')}
+              onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
               className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <ArrowUpDown className="w-4 h-4" />
-              Sort
+              {currentSortLabel}
+              <ChevronDown className="w-4 h-4" />
             </button>
+            {isSortMenuOpen && (
+              <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                {SORT_OPTIONS.map((option) => (
+                  <button
+                    key={option.label}
+                    onClick={() => handleSortSelect(option.field, option.direction)}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-sm hover:bg-gray-50 ${
+                      sortField === option.field && sortDirection === option.direction
+                        ? 'text-primary-600 font-medium'
+                        : 'text-gray-700'
+                    }`}
+                  >
+                    {option.label}
+                    {sortField === option.field && sortDirection === option.direction && (
+                      <Check className="w-4 h-4" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -483,6 +518,7 @@ export function FileBrowser({ isUploadModalOpen, onUploadModalClose }: FileBrows
               <div className="w-4" />
               <div className="w-5" />
               <div className="flex-1">Name</div>
+              <div className="hidden lg:block w-24 text-center">Type</div>
               <div className="hidden sm:block w-24 text-right">Size</div>
               <div className="hidden md:block w-32 text-right">Modified</div>
               <div className="w-8" />

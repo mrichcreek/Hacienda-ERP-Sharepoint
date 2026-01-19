@@ -57,3 +57,22 @@ export function getMimeTypeFromExtension(filename: string): string {
   };
   return mimeTypes[ext] || 'application/octet-stream';
 }
+
+export function getFileTypeDisplay(mimeType: string | null, type: 'FILE' | 'FOLDER'): string {
+  if (type === 'FOLDER') return 'Folder';
+  if (!mimeType) return 'File';
+
+  if (mimeType.startsWith('image/')) return 'Image';
+  if (mimeType.startsWith('video/')) return 'Video';
+  if (mimeType.startsWith('audio/')) return 'Audio';
+  if (mimeType.includes('pdf')) return 'PDF';
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return 'Spreadsheet';
+  if (mimeType === 'text/csv') return 'CSV';
+  if (mimeType.includes('document') || mimeType.includes('word')) return 'Document';
+  if (mimeType.includes('zip') || mimeType.includes('compressed') || mimeType.includes('archive')) return 'Archive';
+  if (mimeType.includes('json')) return 'JSON';
+  if (mimeType.includes('javascript')) return 'JavaScript';
+  if (mimeType.includes('text')) return 'Text';
+
+  return 'File';
+}

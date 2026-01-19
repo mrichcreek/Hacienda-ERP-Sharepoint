@@ -41,7 +41,7 @@ export function useFiles(currentFolderId: string | null, isTrashView: boolean) {
     }
   }, [currentFolderId, isTrashView]);
 
-  const fetchBreadcrumbs = useCallback(async () => {
+  const fetchBreadcrumbs = useCallback(async (): Promise<void> => {
     if (!currentFolderId) {
       setBreadcrumbs([]);
       return;
@@ -51,12 +51,14 @@ export function useFiles(currentFolderId: string | null, isTrashView: boolean) {
     let folderId: string | null = currentFolderId;
 
     while (folderId) {
-      const { data } = await client.models.FileItem.get({ id: folderId });
-      if (data) {
-        crumbs.unshift({ id: data.id, name: data.name });
-        folderId = data.parentId;
+      const currentId: string = folderId;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const response: any = await client.models.FileItem.get({ id: currentId });
+      if (response.data) {
+        crumbs.unshift({ id: response.data.id, name: response.data.name });
+        folderId = response.data.parentId ?? null;
       } else {
-        break;
+        folderId = null;
       }
     }
 

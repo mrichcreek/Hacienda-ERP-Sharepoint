@@ -53,6 +53,19 @@ const schema = a.schema({
       index('userId').sortKeys(['sortKey']),
     ])
     .authorization((allow) => [allow.authenticated()]),
+
+  QuickLink: a
+    .model({
+      userId: a.string().required(),
+      name: a.string().required(),
+      folderId: a.string().required(),
+      folderColor: a.string(),
+      sortOrder: a.integer().default(0),
+    })
+    .secondaryIndexes((index) => [
+      index('userId').sortKeys(['sortOrder']),
+    ])
+    .authorization((allow) => [allow.authenticated()]),
 });
 
 export type Schema = ClientSchema<typeof schema>;

@@ -3,7 +3,7 @@ import { MoreVertical } from 'lucide-react';
 import type { FileItem as FileItemType, ContextMenuAction, ContextMenuPosition } from '../../types';
 import { FileIcon } from './FileIcon';
 import { FileContextMenu } from './FileContextMenu';
-import { formatFileSize, formatDate } from '../../utils/formatters';
+import { formatFileSize, formatDate, getFileTypeDisplay } from '../../utils/formatters';
 
 interface FileItemProps {
   item: FileItemType;
@@ -36,8 +36,13 @@ export function FileItemComponent({
     setContextMenu({ x: rect.right, y: rect.bottom });
   };
 
-  const handleDoubleClick = () => {
+  const handleClick = () => {
     onOpen();
+  };
+
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -51,8 +56,7 @@ export function FileItemComponent({
       <>
         <div
           ref={itemRef}
-          onClick={onSelect}
-          onDoubleClick={handleDoubleClick}
+          onClick={handleClick}
           onContextMenu={handleContextMenu}
           onKeyDown={handleKeyDown}
           tabIndex={0}
@@ -62,6 +66,16 @@ export function FileItemComponent({
               : 'border-transparent hover:border-gray-200 hover:bg-gray-50'
           }`}
         >
+          <div className="absolute top-2 left-2">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={onSelect}
+              onClick={handleCheckboxClick}
+              className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+          </div>
+
           <button
             onClick={handleMenuButtonClick}
             className="absolute top-2 right-2 p-1 rounded hover:bg-gray-200 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -100,8 +114,7 @@ export function FileItemComponent({
     <>
       <div
         ref={itemRef}
-        onClick={onSelect}
-        onDoubleClick={handleDoubleClick}
+        onClick={handleClick}
         onContextMenu={handleContextMenu}
         onKeyDown={handleKeyDown}
         tabIndex={0}
@@ -113,7 +126,7 @@ export function FileItemComponent({
           type="checkbox"
           checked={isSelected}
           onChange={onSelect}
-          onClick={(e) => e.stopPropagation()}
+          onClick={handleCheckboxClick}
           className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
         />
 
@@ -128,6 +141,10 @@ export function FileItemComponent({
 
         <div className="flex-1 min-w-0">
           <p className="font-medium text-gray-900 truncate">{item.name}</p>
+        </div>
+
+        <div className="hidden lg:block w-24 text-sm text-gray-500 text-center">
+          {getFileTypeDisplay(item.mimeType, item.type)}
         </div>
 
         <div className="hidden sm:block w-24 text-sm text-gray-500 text-right">
