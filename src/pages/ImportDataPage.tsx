@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { generateClient } from 'aws-amplify/data';
-import { list } from 'aws-amplify/storage';
 import { fetchAuthSession } from 'aws-amplify/auth';
+import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import type { Schema } from '../../amplify/data/resource';
 import { Loader2, CheckCircle, AlertCircle, Play } from 'lucide-react';
+import outputs from '../../amplify_outputs.json';
 
 const client = generateClient<Schema>();
 
@@ -13,6 +14,7 @@ interface ImportStatus {
   folders: number;
   files: number;
   errors: string[];
+  debugInfo?: string;
 }
 
 function getMimeType(filename: string): string {
@@ -107,40 +109,98 @@ export function ImportDataPage() {
     return parentId;
   };
 
+  const listAllS3Objects = async (
+    s3Client: S3Client,
+    bucketName: string
+  ): Promise<{ key: string; size: number }[]> => {
+    const objects: { key: string; size: number }[] = [];
+    let continuationToken: string | undefined;
+
+    do {
+      const command = new ListObjectsV2Command({
+        Bucket: bucketName,
+        Prefix: 'files/',
+        ContinuationToken: continuationToken,
+      });
+
+      const response = await s3Client.send(command);
+
+      if (response.Contents) {
+        for (const obj of response.Contents) {
+          if (obj.Key && obj.Size !== undefined && !obj.Key.endsWith('/')) {
+            objects.push({ key: obj.Key, size: obj.Size });
+          }
+        }
+      }
+
+      continuationToken = response.NextContinuationToken;
+    } while (continuationToken);
+
+    return objects;
+  };
+
   const handleImport = async () => {
     setIsImporting(true);
     setIsDone(false);
+    folderCache.clear();
     setStatus({
       total: 0,
       processed: 0,
       folders: 0,
       files: 0,
       errors: [],
+      debugInfo: 'Starting import...',
     });
 
     try {
-      // Get current user info
+      // Get current user info and credentials
       const session = await fetchAuthSession();
       const userId = session.tokens?.idToken?.payload?.sub as string;
       const userEmail = session.tokens?.idToken?.payload?.email as string;
+      const credentials = session.credentials;
 
       if (!userId) {
         throw new Error('User not authenticated');
       }
 
-      // List all files in S3
-      const result = await list({
-        path: 'files/',
-        options: {
-          listAll: true,
+      if (!credentials) {
+        throw new Error('No AWS credentials available');
+      }
+
+      setStatus((prev) => prev ? { ...prev, debugInfo: `User ID: ${userId}, fetching S3 files...` } : prev);
+
+      // Get bucket name from amplify outputs
+      const bucketName = outputs.storage.bucket_name;
+      const region = outputs.storage.aws_region;
+
+      // Create S3 client with authenticated credentials
+      const s3Client = new S3Client({
+        region,
+        credentials: {
+          accessKeyId: credentials.accessKeyId,
+          secretAccessKey: credentials.secretAccessKey,
+          sessionToken: credentials.sessionToken,
         },
       });
 
-      const files = result.items.filter(
-        (item) => item.path && !item.path.endsWith('/')
-      );
+      // List all files in S3
+      const files = await listAllS3Objects(s3Client, bucketName);
 
-      setStatus((prev) => prev ? { ...prev, total: files.length } : prev);
+      setStatus((prev) => prev ? {
+        ...prev,
+        total: files.length,
+        debugInfo: `Found ${files.length} files in S3 bucket: ${bucketName}`,
+      } : prev);
+
+      if (files.length === 0) {
+        setStatus((prev) => prev ? {
+          ...prev,
+          debugInfo: `No files found in S3 bucket "${bucketName}" under prefix "files/". Check if files exist in the bucket.`,
+        } : prev);
+        setIsDone(true);
+        setIsImporting(false);
+        return;
+      }
 
       const updateStatus = (updates: Partial<ImportStatus>) => {
         setStatus((prev) => prev ? { ...prev, ...updates } : prev);
@@ -149,7 +209,7 @@ export function ImportDataPage() {
       // Process each file
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const s3Key = file.path;
+        const s3Key = file.key;
         const filename = s3Key.split('/').pop() || '';
 
         try {
@@ -175,16 +235,18 @@ export function ImportDataPage() {
                   ...prev,
                   processed: i + 1,
                   files: prev.files + 1,
+                  debugInfo: `Processing: ${filename}`,
                 }
               : prev
           );
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           setStatus((prev) =>
             prev
               ? {
                   ...prev,
                   processed: i + 1,
-                  errors: [...prev.errors, `${filename}: ${error.message}`],
+                  errors: [...prev.errors, `${filename}: ${errorMessage}`],
                 }
               : prev
           );
@@ -197,12 +259,14 @@ export function ImportDataPage() {
       }
 
       setIsDone(true);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       setStatus((prev) =>
         prev
           ? {
               ...prev,
-              errors: [...prev.errors, `Import failed: ${error.message}`],
+              errors: [...prev.errors, `Import failed: ${errorMessage}`],
+              debugInfo: `Error: ${errorMessage}`,
             }
           : prev
       );
@@ -220,6 +284,10 @@ export function ImportDataPage() {
           This will scan the S3 bucket and create database records for all files,
           making them visible in the file browser.
         </p>
+
+        <div className="mb-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+          <strong>Bucket:</strong> {outputs.storage.bucket_name}
+        </div>
 
         <button
           onClick={handleImport}
@@ -251,6 +319,12 @@ export function ImportDataPage() {
                 {isDone ? 'Import Complete!' : 'Importing...'}
               </span>
             </div>
+
+            {status.debugInfo && (
+              <div className="p-3 bg-gray-100 rounded-lg text-sm text-gray-600 font-mono">
+                {status.debugInfo}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="bg-gray-50 p-3 rounded">
@@ -289,7 +363,7 @@ export function ImportDataPage() {
               </div>
             )}
 
-            {isDone && status.errors.length === 0 && (
+            {isDone && status.errors.length === 0 && status.files > 0 && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700">
                 All files have been imported successfully! Go to{' '}
                 <a href="/" className="underline font-medium">
