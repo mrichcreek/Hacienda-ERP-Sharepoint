@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { generateClient } from 'aws-amplify/data';
-import { uploadData, downloadData, remove, copy } from 'aws-amplify/storage';
+import { uploadData, downloadData, remove, copy, getUrl } from 'aws-amplify/storage';
 import { fetchAuthSession } from 'aws-amplify/auth';
 import type { Schema } from '../../amplify/data/resource';
 import type { FileItem, UploadProgress, BreadcrumbItem } from '../types';
@@ -340,6 +340,23 @@ export function useFiles(currentFolderId: string | null, isTrashView: boolean) {
     }
   }, [showToast]);
 
+  const getFileUrl = useCallback(async (item: FileItem): Promise<string | null> => {
+    if (!item.s3Key || item.type === 'FOLDER') return null;
+
+    try {
+      const result = await getUrl({
+        path: item.s3Key,
+        options: {
+          expiresIn: 3600, // URL valid for 1 hour
+        },
+      });
+      return result.url.toString();
+    } catch (err) {
+      console.error('Failed to get file URL:', err);
+      return null;
+    }
+  }, []);
+
   const updateFolderColor = useCallback(
     async (id: string, color: string | null) => {
       const { data, errors } = await client.models.FileItem.update({
@@ -387,6 +404,7 @@ export function useFiles(currentFolderId: string | null, isTrashView: boolean) {
     moveItems,
     copyItems,
     downloadFile,
+    getFileUrl,
     updateFolderColor,
     fetchFolders,
     refetch: fetchFiles,

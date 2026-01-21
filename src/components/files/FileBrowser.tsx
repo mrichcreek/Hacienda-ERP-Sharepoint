@@ -16,6 +16,7 @@ import {
   Loader2,
   FolderOpen,
   Check,
+  Eye,
 } from 'lucide-react';
 import { useFileContext } from '../../contexts/FileContext';
 import { useFiles } from '../../hooks/useFiles';
@@ -26,6 +27,7 @@ import { CreateFolderModal } from './CreateFolderModal';
 import { RenameModal } from './RenameModal';
 import { MoveToModal } from './MoveToModal';
 import { FolderColorPicker } from './FolderColorPicker';
+import { FilePreviewModal } from './FilePreviewModal';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import type { FileItem, ContextMenuAction, SortField, SortDirection } from '../../types';
 import { SORT_OPTIONS } from '../../types';
@@ -68,6 +70,7 @@ export function FileBrowser({ isUploadModalOpen, onUploadModalClose }: FileBrows
     moveItems,
     copyItems,
     downloadFile,
+    getFileUrl,
     updateFolderColor,
     fetchFolders,
     refetch,
@@ -79,6 +82,10 @@ export function FileBrowser({ isUploadModalOpen, onUploadModalClose }: FileBrows
   const [colorPickerItem, setColorPickerItem] = useState<FileItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ ids: string[]; permanent: boolean } | null>(null);
   const [folders, setFolders] = useState<FileItem[]>([]);
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement>(null);
@@ -236,8 +243,38 @@ export function FileBrowser({ isUploadModalOpen, onUploadModalClose }: FileBrows
       setCurrentFolderId(item.id);
       clearSelection();
     } else {
-      downloadFile(item);
+      handlePreviewFile(item);
     }
+  };
+
+  const handlePreviewFile = async (item: FileItem) => {
+    if (item.type === 'FOLDER') return;
+
+    setPreviewFile(item);
+    setPreviewUrl(null);
+    setPreviewError(null);
+    setIsPreviewLoading(true);
+
+    try {
+      const url = await getFileUrl(item);
+      if (url) {
+        setPreviewUrl(url);
+      } else {
+        setPreviewError('Failed to load file');
+      }
+    } catch (err) {
+      console.error('Preview failed:', err);
+      setPreviewError('Failed to load preview');
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
+
+  const handleClosePreview = () => {
+    setPreviewFile(null);
+    setPreviewUrl(null);
+    setPreviewError(null);
+    setIsPreviewLoading(false);
   };
 
   const getContextMenuActions = useCallback(
@@ -264,10 +301,22 @@ export function FileBrowser({ isUploadModalOpen, onUploadModalClose }: FileBrows
       const actions: ContextMenuAction[] = [
         {
           id: 'open',
-          label: item.type === 'FOLDER' ? 'Open' : 'Download',
-          icon: item.type === 'FOLDER' ? <FolderOpen className="w-4 h-4" /> : <Download className="w-4 h-4" />,
+          label: item.type === 'FOLDER' ? 'Open' : 'Preview',
+          icon: item.type === 'FOLDER' ? <FolderOpen className="w-4 h-4" /> : <Eye className="w-4 h-4" />,
           onClick: () => handleOpenItem(item),
         },
+      ];
+
+      if (item.type === 'FILE') {
+        actions.push({
+          id: 'download',
+          label: 'Download',
+          icon: <Download className="w-4 h-4" />,
+          onClick: () => downloadFile(item),
+        });
+      }
+
+      actions.push(
         {
           id: 'rename',
           label: 'Rename',
@@ -615,6 +664,16 @@ export function FileBrowser({ isUploadModalOpen, onUploadModalClose }: FileBrows
         confirmText={deleteConfirm?.permanent ? 'Delete Permanently' : 'Move to Trash'}
         isDangerous={deleteConfirm?.permanent}
         isLoading={isProcessing}
+      />
+
+      <FilePreviewModal
+        isOpen={!!previewFile}
+        onClose={handleClosePreview}
+        file={previewFile}
+        fileUrl={previewUrl}
+        isLoading={isPreviewLoading}
+        error={previewError}
+        onDownload={() => previewFile && downloadFile(previewFile)}
       />
     </div>
   );
